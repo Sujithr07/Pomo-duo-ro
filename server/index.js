@@ -1,20 +1,32 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Configure CORS
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Allow all origins for testing
-    methods: ["GET", "POST"]
+    origin: process.env.NODE_ENV === 'production' 
+      ? ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"]
+      : "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"]
+    : "http://localhost:3000",
+  credentials: true
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // Socket.IO connection handling
