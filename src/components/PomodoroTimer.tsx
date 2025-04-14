@@ -313,6 +313,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ user: initialUser, socket
     const savedReports = localStorage.getItem('pomodoroReports');
     return savedReports ? JSON.parse(savedReports) : {};
   });
+  const [showNotification, setShowNotification] = useState(false);
 
   // Initialize audio elements
   useEffect(() => {
