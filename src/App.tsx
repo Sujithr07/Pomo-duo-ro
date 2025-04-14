@@ -143,7 +143,7 @@ function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  const [serverUrl, setServerUrl] = useState('https://pomo-duo-ro.vercel.app');
+  const [serverUrl, setServerUrl] = useState(process.env.REACT_APP_SERVER_URL || 'https://pomo-duo-ro-backend.onrender.com');
   const [sessionId, setSessionId] = useState('');
   const [showJoinOptions, setShowJoinOptions] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
