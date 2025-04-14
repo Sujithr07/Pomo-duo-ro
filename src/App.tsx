@@ -143,7 +143,7 @@ function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [username, setUsername] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  const [serverUrl, setServerUrl] = useState(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000');
+  const [serverUrl, setServerUrl] = useState('https://pomo-duo-ro.vercel.app');
   const [sessionId, setSessionId] = useState('');
   const [showJoinOptions, setShowJoinOptions] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
@@ -211,7 +211,7 @@ function App() {
                 />
                 <Input
                   type="text"
-                  placeholder="Server URL (default: http://localhost:5000)"
+                  placeholder="Server URL (default: https://pomo-duo-ro.vercel.app)"
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
                 />

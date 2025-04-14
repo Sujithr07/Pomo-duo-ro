@@ -10,13 +10,17 @@ const server = http.createServer(app);
 // Configure CORS
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Allow all origins for simplicity
+    origin: ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"],
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Socket.IO connection handling
@@ -59,8 +63,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Server is accessible at http://localhost:${PORT}`);
-  console.log(`For duo sessions, share your IP address with your partner`);
 }); 
