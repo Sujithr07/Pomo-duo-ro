@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -11,22 +10,13 @@ const server = http.createServer(app);
 // Configure CORS
 const io = socketIo(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"]
-      : "http://localhost:3000",
+    origin: "*", // Allow all origins for simplicity
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ["https://pomo-duo-ro.vercel.app", "https://pomo-duo-ro-git-main-sujithr07.vercel.app"]
-    : "http://localhost:3000",
-  credentials: true
-}));
-
-// Middleware
+app.use(cors());
 app.use(express.json());
 
 // Socket.IO connection handling
@@ -50,10 +40,6 @@ io.on('connection', (socket) => {
 
   socket.on('timerUpdate', ({ roomId, userId, timerState }) => {
     socket.to(roomId).emit('timerUpdated', { userId, timerState });
-  });
-
-  socket.on('statsUpdate', ({ roomId, userId, stats }) => {
-    socket.to(roomId).emit('statsUpdated', { userId, stats });
   });
 
   socket.on('disconnect', () => {
