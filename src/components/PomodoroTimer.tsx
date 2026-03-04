@@ -114,19 +114,32 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
           /* log completed session */
           const sessionDuration = timer.isBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
           onSessionComplete?.(sessionDuration, timer.isBreak ? 'break' : 'focus');
-          /* play sound */
+          /* play sound: cat for focus end, dog for break end */
           try {
-            const audio = new Audio(SOUNDS[0].url);
+            const soundUrl = timer.isBreak ? SOUNDS[1].url : SOUNDS[0].url;
+            const audio = new Audio(soundUrl);
             audio.volume = 0.4;
             audio.play().catch(() => {});
           } catch { /* ignore */ }
 
           /* notify */
           if (Notification.permission === 'granted') {
-            new Notification(nextIsBreak ? 'Break time!' : 'Focus time!', {
-              body: nextIsBreak ? 'Great work — take a break.' : 'Break over — let\'s focus!',
+            new Notification(nextIsBreak ? '🎉 Focus session complete!' : '⏰ Break is over!', {
+              body: nextIsBreak
+                ? `Great work — take a ${timer.breakMinutes} minute break.`
+                : 'Break over — time to focus!',
+              tag: 'timer-alert',
+              requireInteraction: true,
             });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
           }
+
+          /* in-app alert for visibility */
+          const alertMsg = nextIsBreak
+            ? `✅ Focus session complete! Time for a ${timer.breakMinutes}min break.`
+            : '⏰ Break is over! Let\'s get back to work!';
+          setTimeout(() => alert(alertMsg), 200);
 
           if (pomodoroMode) {
             patch({

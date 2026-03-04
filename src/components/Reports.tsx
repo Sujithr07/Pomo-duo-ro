@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { database } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import type { SessionLog } from '../types';
 
 interface Props {
@@ -17,10 +17,12 @@ const fmtDur = (sec: number): string => {
 const Reports: React.FC<Props> = ({ userUid }) => {
   const [sessions, setSessions] = useState<SessionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
+  const fetchSessions = useCallback(() => {
+    setLoading(true);
     const sessRef = ref(database, `sessions/${userUid}`);
-    return onValue(sessRef, (snap) => {
+    get(sessRef).then((snap) => {
       if (!snap.exists()) { setSessions([]); setLoading(false); return; }
       const data = snap.val() as Record<string, Omit<SessionLog, 'id'>>;
       const list = Object.entries(data)
@@ -30,6 +32,12 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       setLoading(false);
     });
   }, [userUid]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions, refreshKey]);
+
+  const handleRefresh = () => setRefreshKey((k) => k + 1);
 
   /* ── computed stats ────────────────────────────────────── */
   const stats = useMemo(() => {
@@ -50,9 +58,6 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       dailyMap[key] = 0;
     }
 
-    // Per-task breakdown
-    const taskMap: Record<string, number> = {};
-
     sessions.forEach((s) => {
       allTotal += s.duration;
       totalSessions++;
@@ -64,19 +69,10 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       const d = new Date(s.date);
       const key = `${d.getMonth() + 1}/${d.getDate()}`;
       if (key in dailyMap) dailyMap[key] += s.duration;
-
-      // Per task
-      const tname = s.taskName || 'Untitled';
-      taskMap[tname] = (taskMap[tname] || 0) + s.duration;
     });
 
-    const dailyEntries = Object.entries(dailyMap);
+    const dailyEntries = Object.entries(dailyMap).filter(([, v]) => v > 0);
     const maxDaily = Math.max(...dailyEntries.map(([, v]) => v), 1);
-
-    const taskEntries = Object.entries(taskMap)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10);
-    const maxTask = taskEntries.length > 0 ? taskEntries[0][1] : 1;
 
     // Weekly breakdown (last 4 weeks)
     const weeklyMap: { label: string; seconds: number }[] = [];
@@ -86,11 +82,13 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       const wSec = sessions
         .filter((s) => s.date >= wStart && s.date < wEnd)
         .reduce((a, s) => a + s.duration, 0);
-      const wd = new Date(wStart);
-      weeklyMap.push({
-        label: `${wd.getMonth() + 1}/${wd.getDate()}`,
-        seconds: wSec,
-      });
+      if (wSec > 0) {
+        const wd = new Date(wStart);
+        weeklyMap.push({
+          label: `${wd.getMonth() + 1}/${wd.getDate()}`,
+          seconds: wSec,
+        });
+      }
     }
     const maxWeekly = Math.max(...weeklyMap.map((w) => w.seconds), 1);
 
@@ -100,7 +98,6 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       todayTotal, weekTotal, allTotal, totalSessions, avgDaily,
       dailyEntries, maxDaily,
       weeklyMap, maxWeekly,
-      taskEntries, maxTask,
     };
   }, [sessions]);
 
@@ -117,6 +114,7 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       <div className="rp-header">
         <span className="rp-icon">📊</span>
         <h2 className="rp-title">Reports</h2>
+        <button className="btn btn-sm rp-refresh-btn" onClick={handleRefresh} title="Refresh">🔄 Refresh</button>
       </div>
 
       {/* summary cards */}
@@ -142,6 +140,9 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       {/* daily chart (last 7 days) */}
       <div className="rp-section">
         <h3 className="rp-section-title">📅 Daily Productivity (Last 7 Days)</h3>
+        {stats.dailyEntries.length === 0 ? (
+          <p className="rp-no-data">No focus sessions recorded in the last 7 days.</p>
+        ) : (
         <div className="rp-bar-chart">
           {stats.dailyEntries.map(([day, sec]) => {
             const pct = (sec / stats.maxDaily) * 100;
@@ -149,56 +150,38 @@ const Reports: React.FC<Props> = ({ userUid }) => {
             const todayKey = `${d.getMonth() + 1}/${d.getDate()}`;
             return (
               <div key={day} className={`rp-bar-col ${day === todayKey ? 'today' : ''}`}>
-                <span className="rp-bar-val">{sec > 0 ? fmtDur(sec) : '—'}</span>
+                <span className="rp-bar-val">{fmtDur(sec)}</span>
                 <div className="rp-bar-track">
-                  <div className="rp-bar-fill" style={{ height: `${Math.max(pct, 2)}%` }} />
+                  <div className="rp-bar-fill" style={{ height: `${Math.max(pct, 4)}%` }} />
                 </div>
                 <span className="rp-bar-label">{day}</span>
               </div>
             );
           })}
         </div>
+        )}
       </div>
 
       {/* weekly chart */}
       <div className="rp-section">
         <h3 className="rp-section-title">📆 Weekly Productivity (Last 4 Weeks)</h3>
+        {stats.weeklyMap.length === 0 ? (
+          <p className="rp-no-data">No focus sessions recorded in the last 4 weeks.</p>
+        ) : (
         <div className="rp-bar-chart rp-bar-chart-wide">
           {stats.weeklyMap.map((w, i) => {
             const pct = (w.seconds / stats.maxWeekly) * 100;
             return (
               <div key={i} className={`rp-bar-col ${i === stats.weeklyMap.length - 1 ? 'today' : ''}`}>
-                <span className="rp-bar-val">{w.seconds > 0 ? fmtDur(w.seconds) : '—'}</span>
+                <span className="rp-bar-val">{fmtDur(w.seconds)}</span>
                 <div className="rp-bar-track">
-                  <div className="rp-bar-fill weekly" style={{ height: `${Math.max(pct, 2)}%` }} />
+                  <div className="rp-bar-fill weekly" style={{ height: `${Math.max(pct, 4)}%` }} />
                 </div>
                 <span className="rp-bar-label">W{w.label}</span>
               </div>
             );
           })}
         </div>
-      </div>
-
-      {/* time per task */}
-      <div className="rp-section">
-        <h3 className="rp-section-title">🎯 Time per Task</h3>
-        {stats.taskEntries.length === 0 ? (
-          <p className="ts-empty">No task data yet.</p>
-        ) : (
-          <div className="rp-task-bars">
-            {stats.taskEntries.map(([name, sec]) => {
-              const pct = (sec / stats.maxTask) * 100;
-              return (
-                <div key={name} className="rp-task-row">
-                  <span className="rp-task-name">{name}</span>
-                  <div className="rp-task-bar-track">
-                    <div className="rp-task-bar-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="rp-task-time">{fmtDur(sec)}</span>
-                </div>
-              );
-            })}
-          </div>
         )}
       </div>
     </div>

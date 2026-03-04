@@ -3,6 +3,8 @@ import { database } from '../firebase';
 import { ref, onValue, push, set } from 'firebase/database';
 import { ChatMessage } from '../types';
 
+const CHAT_SOUND_URL = `${process.env.PUBLIC_URL}/sounds/notification.mp3`;
+
 interface Props {
   roomId: string;
   userName: string;
@@ -13,20 +15,48 @@ const Chat: React.FC<Props> = ({ roomId, userName }) => {
   const [draft, setDraft] = useState('');
   const [minimized, setMinimized] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef<number>(0);
+  const initialLoadRef = useRef(true);
 
   /* listen for messages */
   useEffect(() => {
     const messagesRef = ref(database, `rooms/${roomId}/messages`);
     const unsub = onValue(messagesRef, (snap) => {
-      if (!snap.exists()) { setMessages([]); return; }
+      if (!snap.exists()) { setMessages([]); prevCountRef.current = 0; return; }
       const data = snap.val() as Record<string, Omit<ChatMessage, 'id'>>;
       const list = Object.entries(data)
         .map(([id, m]) => ({ id, ...m }))
         .sort((a, b) => a.timestamp - b.timestamp);
+
+      /* Play notification sound for new messages from others */
+      if (!initialLoadRef.current && list.length > prevCountRef.current) {
+        const newMsgs = list.slice(prevCountRef.current);
+        const hasOtherMsg = newMsgs.some((m) => m.sender !== userName);
+        if (hasOtherMsg) {
+          try {
+            const audio = new Audio(CHAT_SOUND_URL);
+            audio.volume = 0.5;
+            audio.play().catch(() => {});
+          } catch { /* ignore */ }
+
+          /* Browser / Windows notification */
+          if (Notification.permission === 'granted') {
+            const lastOther = newMsgs.filter((m) => m.sender !== userName).pop();
+            if (lastOther) {
+              new Notification(`${lastOther.sender} sent a message`, {
+                body: lastOther.text.slice(0, 100),
+                tag: 'chat-msg',
+              });
+            }
+          }
+        }
+      }
+      initialLoadRef.current = false;
+      prevCountRef.current = list.length;
       setMessages(list);
     });
     return unsub;
-  }, [roomId]);
+  }, [roomId, userName]);
 
   /* auto-scroll */
   useEffect(() => {

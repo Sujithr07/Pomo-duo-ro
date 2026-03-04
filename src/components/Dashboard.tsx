@@ -168,7 +168,7 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
             <h1 className="logo">Pomodoro Duo</h1>
             <p className="dash-greeting">Welcome, <strong>{displayName}</strong></p>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={handleSignOut}>Sign Out</button>
+          <button className="btn btn-secondary btn-sm dash-signout-btn" onClick={handleSignOut}>Sign Out</button>
         </div>
 
         {/* notifications row: invites + friend requests */}

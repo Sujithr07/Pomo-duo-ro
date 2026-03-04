@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { database } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import type { SessionLog } from '../types';
@@ -59,6 +59,18 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
     })
     .reduce((acc, s) => acc + s.duration, 0);
 
+  /* Per-task time breakdown (focus sessions only) */
+  const taskStats = useMemo(() => {
+    const taskMap: Record<string, number> = {};
+    sessions.filter((s) => s.type === 'focus').forEach((s) => {
+      const name = s.taskName || 'Untitled';
+      taskMap[name] = (taskMap[name] || 0) + s.duration;
+    });
+    const entries = Object.entries(taskMap).sort(([, a], [, b]) => b - a).slice(0, 10);
+    const max = entries.length > 0 ? entries[0][1] : 1;
+    return { entries, max };
+  }, [sessions]);
+
   return (
     <div className="timesheet-page">
       <div className="ts-header">
@@ -80,7 +92,30 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
           <p className="ts-empty-sub">Complete a focus session to see it here!</p>
         </div>
       ) : (
-        <div className="ts-groups">
+        <>
+          {/* time per task */}
+          {taskStats.entries.length > 0 && (
+            <div className="ts-task-section">
+              <h3 className="ts-section-title">🎯 Time per Task</h3>
+              <div className="rp-task-bars">
+                {taskStats.entries.map(([name, sec]) => {
+                  const pct = (sec / taskStats.max) * 100;
+                  return (
+                    <div key={name} className="rp-task-row">
+                      <span className="rp-task-name">{name}</span>
+                      <div className="rp-task-bar-track">
+                        <div className="rp-task-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="rp-task-time">{fmtDur(sec)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* session groups by date */}
+          <div className="ts-groups">
           {Object.entries(grouped).map(([dateStr, daySessions]) => {
             const focusTotal = daySessions.filter((s) => s.type === 'focus').reduce((a, s) => a + s.duration, 0);
             return (
@@ -102,7 +137,8 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

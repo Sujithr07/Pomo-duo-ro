@@ -7,6 +7,7 @@ import Leaderboard from './components/Leaderboard';
 import TaskManager from './components/TaskManager';
 import Timesheet from './components/Timesheet';
 import Reports from './components/Reports';
+import DailyGoal from './components/DailyGoal';
 import {
   database,
   auth,
@@ -258,7 +259,10 @@ function App() {
             />
           </div>
 
-          <Leaderboard inline />
+          <div className="sidebar-col">
+            <Leaderboard inline />
+            <DailyGoal userUid={user.uid} userName={user.displayName || 'User'} />
+          </div>
         </div>
       )}
 
