@@ -3,6 +3,7 @@ import { database, auth, signOut } from '../firebase';
 import { ref, onValue, set, get, remove, push, update } from 'firebase/database';
 import type { User } from '../firebase';
 import type { UserProfile, FriendRequest, RoomInvite } from '../types';
+import Leaderboard from './Leaderboard';
 
 interface Props {
   user: User;
@@ -18,7 +19,6 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
   const [searchResult, setSearchResult] = useState<{ uid: string; profile: UserProfile } | null>(null);
   const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
-
   const uid = user.uid;
   const displayName = user.displayName || 'User';
 
@@ -171,6 +171,9 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
           <button className="btn btn-secondary btn-sm" onClick={handleSignOut}>Sign Out</button>
         </div>
 
+        {/* leaderboard inline panel */}
+        <Leaderboard inline />
+
         {/* incoming invites */}
         {invites.length > 0 && (
           <div className="dash-section">
@@ -281,6 +284,7 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
             Create New Room
           </button>
         </div>
+
       </div>
     </div>
   );

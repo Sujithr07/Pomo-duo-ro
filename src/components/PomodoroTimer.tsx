@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { database } from '../firebase';
-import { ref, update } from 'firebase/database';
+import { ref, update, get, set } from 'firebase/database';
 import type { TimerState } from '../types';
+import TimerSettings from './TimerSettings';
 
 /* ── sound assets ─────────────────────────────────────────────── */
 const SOUNDS = [
@@ -11,24 +12,41 @@ const SOUNDS = [
 
 /* ── helpers ──────────────────────────────────────────────────── */
 const fmt = (s: number) => {
-  const m = Math.floor(s / 60);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
+  if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+};
+
+/** Get today's date key in IST (UTC+5:30) */
+const getTodayKeyIST = (): string => {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + istOffset);
+  const y = ist.getUTCFullYear();
+  const mo = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(ist.getUTCDate()).padStart(2, '0');
+  return `${y}-${mo}-${d}`;
 };
 
 /* ── props ────────────────────────────────────────────────────── */
 interface Props {
   roomId: string;
-  userName: string;      // display name for UI
-  userUid: string;       // key under /rooms/{roomId}/users
+  userName: string;
+  userUid: string;
   timer: TimerState;
-  isOwner: boolean;      // true → this is the current user's timer
+  isOwner: boolean;
 }
 
 /* ── component ────────────────────────────────────────────────── */
 const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOwner }) => {
   const rafRef = useRef<number>(0);
   const displayRef = useRef<HTMLSpanElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [pomodoroMode, setPomodoroMode] = useState(false);
+  /** Track the last epoch‑ms we accounted for study time */
+  const lastTickRef = useRef<number>(0);
 
   /* Persist timer changes to Firebase */
   const patch = useCallback(
@@ -40,15 +58,52 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
     [isOwner, roomId, userUid],
   );
 
+  /** Add seconds to today's leaderboard entry */
+  const addStudyTime = useCallback(
+    async (seconds: number) => {
+      if (!isOwner || seconds <= 0) return;
+      const todayKey = getTodayKeyIST();
+      const lbRef = ref(database, `leaderboard/${todayKey}/${userUid}`);
+      const snap = await get(lbRef);
+      const current = snap.exists() ? (snap.val().totalSeconds || 0) : 0;
+      await set(lbRef, { displayName: userName, totalSeconds: current + seconds });
+    },
+    [isOwner, userUid, userName],
+  );
+
   /* ── local RAF countdown (display-only, owner also writes back) ─── */
   useEffect(() => {
-    if (!timer.isRunning || !timer.endTime) return;
+    if (!timer.isRunning || !timer.endTime) {
+      lastTickRef.current = 0;
+      return;
+    }
+
+    // Initialize tick tracker
+    if (lastTickRef.current === 0) lastTickRef.current = Date.now();
 
     const tick = () => {
-      const remaining = Math.max(0, Math.ceil((timer.endTime! - Date.now()) / 1000));
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((timer.endTime! - now) / 1000));
       if (displayRef.current) displayRef.current.textContent = fmt(remaining);
 
+      // Track focus study time (not break) every RAF tick for owner
+      if (isOwner && !timer.isBreak && lastTickRef.current > 0) {
+        const elapsed = Math.floor((now - lastTickRef.current) / 1000);
+        if (elapsed >= 10) {
+          // Batch write every ~10 seconds to avoid too many writes
+          addStudyTime(elapsed);
+          lastTickRef.current = now;
+        }
+      }
+
       if (remaining <= 0) {
+        /* Flush any remaining tracked time */
+        if (isOwner && !timer.isBreak && lastTickRef.current > 0) {
+          const finalElapsed = Math.floor((now - lastTickRef.current) / 1000);
+          if (finalElapsed > 0) addStudyTime(finalElapsed);
+          lastTickRef.current = 0;
+        }
+
         /* session ended */
         const nextIsBreak = !timer.isBreak;
         const nextDuration = nextIsBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
@@ -68,14 +123,23 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
             });
           }
 
-          patch({
-            isBreak: nextIsBreak,
-            timeLeft: nextDuration,
-            isRunning: true,
-            endTime: Date.now() + nextDuration * 1000,
-          });
+          if (pomodoroMode) {
+            patch({
+              isBreak: nextIsBreak,
+              timeLeft: nextDuration,
+              isRunning: true,
+              endTime: Date.now() + nextDuration * 1000,
+            });
+          } else {
+            patch({
+              isBreak: nextIsBreak,
+              timeLeft: nextDuration,
+              isRunning: false,
+              endTime: null,
+            });
+          }
         }
-        return; // stop RAF, useEffect will re-run with new timer state
+        return;
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -83,7 +147,7 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, patch]);
+  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, pomodoroMode, patch, addStudyTime]);
 
   /* Update document title for owner */
   useEffect(() => {
@@ -96,30 +160,38 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
   /* ── controls (owner only) ─────────────────────────────────── */
   const handleStart = () => {
     const now = Date.now();
+    lastTickRef.current = now;
     patch({ isRunning: true, endTime: now + timer.timeLeft * 1000 });
   };
 
   const handlePause = () => {
-    const remaining = timer.endTime ? Math.max(0, Math.ceil((timer.endTime - Date.now()) / 1000)) : timer.timeLeft;
+    const now = Date.now();
+    const remaining = timer.endTime ? Math.max(0, Math.ceil((timer.endTime - now) / 1000)) : timer.timeLeft;
+    // Flush study time on pause
+    if (!timer.isBreak && lastTickRef.current > 0) {
+      const elapsed = Math.floor((now - lastTickRef.current) / 1000);
+      if (elapsed > 0) addStudyTime(elapsed);
+      lastTickRef.current = 0;
+    }
     patch({ isRunning: false, timeLeft: remaining, endTime: null });
   };
 
   const handleReset = () => {
     const duration = timer.isBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
+    lastTickRef.current = 0;
     patch({ isRunning: false, timeLeft: duration, endTime: null });
   };
 
-  const handleWorkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Math.max(1, Math.min(120, Number(e.target.value) || 1));
-    const updates: Partial<TimerState> = { workMinutes: v };
-    if (!timer.isRunning && !timer.isBreak) updates.timeLeft = v * 60;
-    patch(updates);
-  };
-
-  const handleBreakChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Math.max(1, Math.min(60, Number(e.target.value) || 1));
-    const updates: Partial<TimerState> = { breakMinutes: v };
-    if (!timer.isRunning && timer.isBreak) updates.timeLeft = v * 60;
+  const handleApplySettings = (workSeconds: number, breakMinutes: number, isPomodoroMode: boolean) => {
+    const workMin = Math.ceil(workSeconds / 60);
+    setPomodoroMode(isPomodoroMode);
+    const updates: Partial<TimerState> = {
+      workMinutes: workMin,
+      breakMinutes: breakMinutes,
+    };
+    if (!timer.isRunning && !timer.isBreak) {
+      updates.timeLeft = workSeconds;
+    }
     patch(updates);
   };
 
@@ -134,6 +206,16 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
         <span className={`timer-badge ${timer.isBreak ? 'badge-break' : 'badge-focus'}`}>
           {timer.isBreak ? 'Break' : 'Focus'}
         </span>
+        {isOwner && (
+          <button
+            className="timer-settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="Timer Settings"
+            disabled={timer.isRunning}
+          >
+            ⚙️
+          </button>
+        )}
       </div>
 
       <div className="timer-display">
@@ -145,43 +227,30 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
       </div>
 
       {isOwner && (
-        <>
-          <div className="timer-controls">
-            {timer.isRunning ? (
-              <button className="btn btn-pause" onClick={handlePause}>Pause</button>
-            ) : (
-              <button className="btn btn-start" onClick={handleStart}>Start</button>
-            )}
-            <button className="btn btn-reset" onClick={handleReset}>Reset</button>
-          </div>
+        <div className="timer-controls">
+          {timer.isRunning ? (
+            <button className="btn btn-pause" onClick={handlePause}>Pause</button>
+          ) : (
+            <button className="btn btn-start" onClick={handleStart}>Start</button>
+          )}
+          <button className="btn btn-reset" onClick={handleReset}>Reset</button>
+        </div>
+      )}
 
-          <div className="timer-settings">
-            <label>
-              Work
-              <input
-                type="number"
-                min={1}
-                max={120}
-                value={timer.workMinutes}
-                onChange={handleWorkChange}
-                disabled={timer.isRunning}
-              />
-              <span className="unit">min</span>
-            </label>
-            <label>
-              Break
-              <input
-                type="number"
-                min={1}
-                max={60}
-                value={timer.breakMinutes}
-                onChange={handleBreakChange}
-                disabled={timer.isRunning}
-              />
-              <span className="unit">min</span>
-            </label>
-          </div>
-        </>
+      {isOwner && !timer.isRunning && (
+        <div className="timer-info-bar">
+          <span>Focus: {timer.workMinutes}m</span>
+          <span>Break: {timer.breakMinutes}m</span>
+          <span>{pomodoroMode ? '🍅 Auto' : '⏸ Manual'}</span>
+        </div>
+      )}
+
+      {showSettings && (
+        <TimerSettings
+          timer={timer}
+          onApply={handleApplySettings}
+          onClose={() => setShowSettings(false)}
+        />
       )}
     </div>
   );

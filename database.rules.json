@@ -38,6 +38,14 @@
           ".write": "auth != null"
         }
       }
+    },
+    "leaderboard": {
+      ".read": "auth != null",
+      "$date": {
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
     }
   }
 }

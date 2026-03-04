@@ -3,6 +3,7 @@ import PomodoroTimer from './components/PomodoroTimer';
 import Chat from './components/Chat';
 import AuthPage from './components/AuthPage';
 import Dashboard from './components/Dashboard';
+import Leaderboard from './components/Leaderboard';
 import {
   database,
   auth,
@@ -164,38 +165,45 @@ function App() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <span className="topbar-room">
+      {/* compact room strip */}
+      <div className="room-strip">
+        <span className="room-strip-id">
           Room: <strong>{roomId}</strong>
         </span>
-        <button className="btn-link" onClick={copyLink}>
-          {copied ? 'Copied!' : 'Copy invite link'}
+        <button className="room-strip-btn" onClick={copyLink} title="Copy invite link">
+          {copied ? '✓ Copied' : '🔗 Invite'}
         </button>
-        <button className="btn-link danger" onClick={leaveRoom}>
-          Leave
+        <button className="room-strip-btn danger" onClick={leaveRoom} title="Leave room">
+          ✕ Leave
         </button>
       </div>
 
-      <div className="timers-row">
-        {userUids.length === 0 && <p>Connecting…</p>}
+      <div className="study-layout">
+        <div className="timers-col">
+          <div className="timers-row">
+            {userUids.length === 0 && <p>Connecting…</p>}
 
-        {userUids.map((uid) => (
-          <PomodoroTimer
-            key={uid}
-            roomId={roomId}
-            userName={roomDisplayNames[uid] || 'User'}
-            userUid={uid}
-            timer={roomUsers[uid]}
-            isOwner={uid === user.uid}
-          />
-        ))}
+            {userUids.map((uid) => (
+              <PomodoroTimer
+                key={uid}
+                roomId={roomId}
+                userName={roomDisplayNames[uid] || 'User'}
+                userUid={uid}
+                timer={roomUsers[uid]}
+                isOwner={uid === user.uid}
+              />
+            ))}
 
-        {userUids.length === 1 && (
-          <div className="timer-card placeholder">
-            <p>Waiting for your study partner…</p>
-            <p className="small">Invite a friend from the dashboard, or share the room link.</p>
+            {userUids.length === 1 && (
+              <div className="timer-card placeholder">
+                <p>Waiting for your study partner…</p>
+                <p className="small">Invite a friend from the dashboard, or share the room link.</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        <Leaderboard inline />
       </div>
 
       <Chat roomId={roomId} userName={user.displayName || 'User'} />
