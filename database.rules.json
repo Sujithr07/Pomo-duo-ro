@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "users": {
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.hasChildren() && newData.numChildren() <= 2"
+        },
+        "messages": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    }
+  }
+}
