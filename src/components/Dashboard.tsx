@@ -171,10 +171,7 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
           <button className="btn btn-secondary btn-sm" onClick={handleSignOut}>Sign Out</button>
         </div>
 
-        {/* leaderboard inline panel */}
-        <Leaderboard inline />
-
-        {/* incoming invites */}
+        {/* notifications row: invites + friend requests */}
         {invites.length > 0 && (
           <div className="dash-section">
             <h3 className="dash-section-title">Room Invites</h3>
@@ -190,7 +187,6 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
           </div>
         )}
 
-        {/* friend requests */}
         {requests.length > 0 && (
           <div className="dash-section">
             <h3 className="dash-section-title">Friend Requests</h3>
@@ -206,72 +202,82 @@ const Dashboard: React.FC<Props> = ({ user, onJoinRoom }) => {
           </div>
         )}
 
-        {/* friends list */}
-        <div className="dash-section">
-          <h3 className="dash-section-title">Friends</h3>
-          {friendUids.length === 0 ? (
-            <p className="dash-empty">No friends yet. Search by email to add someone!</p>
-          ) : (
-            friendUids.map((fuid) => {
-              const f = friends[fuid];
-              if (!f) return null;
-              return (
-                <div key={fuid} className="dash-row">
-                  <div className="dash-friend-info">
-                    <span className={`status-dot ${f.online ? 'online' : 'offline'}`} />
-                    <span className="dash-friend-name">{f.displayName}</span>
-                    <span className="dash-friend-status">
-                      {f.online ? 'Online' : 'Offline'}
-                    </span>
-                  </div>
-                  <div className="dash-row-actions">
-                    {f.online && (
-                      <button className="btn btn-primary btn-sm" onClick={() => inviteFriend(fuid)}>
-                        Invite to study
-                      </button>
-                    )}
-                    <button className="btn btn-secondary btn-sm btn-danger-text" onClick={() => removeFriend(fuid)}>
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* add friend */}
-        <div className="dash-section">
-          <h3 className="dash-section-title">Add Friend</h3>
-          <div className="dash-search">
-            <input
-              className="dash-search-input"
-              type="email"
-              placeholder="Enter friend's email"
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            <button className="btn btn-primary btn-sm" onClick={handleSearch} disabled={searching}>
-              {searching ? 'Searching…' : 'Search'}
-            </button>
+        {/* ── two-column: leaderboard + friends ─────────────── */}
+        <div className="dash-columns">
+          {/* left: leaderboard */}
+          <div className="dash-col">
+            <Leaderboard inline />
           </div>
-          {searchError && <p className={searchError.includes('sent') ? 'success-msg' : 'error'} style={{ marginTop: '0.5rem' }}>{searchError}</p>}
-          {searchResult && (
-            <div className="dash-row" style={{ marginTop: '0.5rem' }}>
-              <div className="dash-friend-info">
-                <span className={`status-dot ${searchResult.profile.online ? 'online' : 'offline'}`} />
-                <span className="dash-friend-name">{searchResult.profile.displayName}</span>
-                <span className="dash-friend-status">{searchResult.profile.email}</span>
-              </div>
-              <button className="btn btn-primary btn-sm" onClick={() => sendRequest(searchResult.uid)}>
-                Send Request
-              </button>
+
+          {/* right: friends + add friend */}
+          <div className="dash-col">
+            <div className="dash-section">
+              <h3 className="dash-section-title">Friends</h3>
+              {friendUids.length === 0 ? (
+                <p className="dash-empty">No friends yet. Search by email to add someone!</p>
+              ) : (
+                friendUids.map((fuid) => {
+                  const f = friends[fuid];
+                  if (!f) return null;
+                  return (
+                    <div key={fuid} className="dash-row">
+                      <div className="dash-friend-info">
+                        <span className={`status-dot ${f.online ? 'online' : 'offline'}`} />
+                        <span className="dash-friend-name">{f.displayName}</span>
+                        <span className="dash-friend-status">
+                          {f.online ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <div className="dash-row-actions">
+                        {f.online && (
+                          <button className="btn btn-primary btn-sm" onClick={() => inviteFriend(fuid)}>
+                            Invite to study
+                          </button>
+                        )}
+                        <button className="btn btn-secondary btn-sm btn-danger-text" onClick={() => removeFriend(fuid)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
-          )}
+
+            {/* add friend */}
+            <div className="dash-section">
+              <h3 className="dash-section-title">Add Friend</h3>
+              <div className="dash-search">
+                <input
+                  className="dash-search-input"
+                  type="email"
+                  placeholder="Enter friend's email"
+                  value={searchEmail}
+                  onChange={(e) => setSearchEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <button className="btn btn-primary btn-sm" onClick={handleSearch} disabled={searching}>
+                  {searching ? 'Searching…' : 'Search'}
+                </button>
+              </div>
+              {searchError && <p className={searchError.includes('sent') ? 'success-msg' : 'error'} style={{ marginTop: '0.5rem' }}>{searchError}</p>}
+              {searchResult && (
+                <div className="dash-row" style={{ marginTop: '0.5rem' }}>
+                  <div className="dash-friend-info">
+                    <span className={`status-dot ${searchResult.profile.online ? 'online' : 'offline'}`} />
+                    <span className="dash-friend-name">{searchResult.profile.displayName}</span>
+                    <span className="dash-friend-status">{searchResult.profile.email}</span>
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={() => sendRequest(searchResult.uid)}>
+                    Send Request
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* create / join room manually */}
+        {/* create / join room */}
         <div className="dash-section">
           <h3 className="dash-section-title">Quick Room</h3>
           <p className="dash-empty" style={{ marginBottom: '0.5rem' }}>

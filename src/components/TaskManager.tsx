@@ -36,12 +36,20 @@ const TaskManager: React.FC<Props> = ({ userUid, onSelectTask, activeTask }) => 
   };
 
   const toggleComplete = (task: Task) => {
+    // If completing the active task, clear the active selection
+    if (!task.completed && activeTask === task.name && onSelectTask) {
+      onSelectTask('');
+    }
     const taskRef = ref(database, `tasks/${userUid}/${task.id}`);
     update(taskRef, { completed: !task.completed });
   };
 
-  const deleteTask = (taskId: string) => {
-    const taskRef = ref(database, `tasks/${userUid}/${taskId}`);
+  const deleteTask = (task: Task) => {
+    // If the deleted task is the active one, clear it
+    if (activeTask === task.name && onSelectTask) {
+      onSelectTask('');
+    }
+    const taskRef = ref(database, `tasks/${userUid}/${task.id}`);
     remove(taskRef);
   };
 
@@ -112,7 +120,7 @@ const TaskManager: React.FC<Props> = ({ userUid, onSelectTask, activeTask }) => 
               )}
               <button
                 className="task-delete-btn"
-                onClick={() => deleteTask(task.id)}
+                onClick={() => deleteTask(task)}
                 title="Delete task"
               >
                 ✕

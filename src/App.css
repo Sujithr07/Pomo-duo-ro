@@ -610,7 +610,7 @@ body {
 
 /* ── dashboard ────────────────────────────────────────────────── */
 .dashboard {
-  max-width: 600px;
+  max-width: 1100px;
   margin: 2rem auto;
   width: 100%;
 }
@@ -632,6 +632,26 @@ body {
 
 .dash-greeting strong {
   color: var(--accent-bright);
+}
+
+/* two-column layout for leaderboard + friends */
+.dash-columns {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dash-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dash-col .leaderboard-panel {
+  width: 100%;
+  position: static;
 }
 
 .dash-section {
@@ -800,6 +820,10 @@ body {
   .dashboard {
     margin: 1rem auto;
     padding: 0 0.25rem;
+  }
+
+  .dash-columns {
+    flex-direction: column;
   }
 
   .dash-header {
@@ -1379,7 +1403,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.5rem;
   margin-top: 1.25rem;
 }
 
@@ -1397,28 +1421,28 @@ body {
 }
 
 .task-icon {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
 }
 
 .task-title {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
 .task-count {
   background: rgba(139, 92, 246, 0.2);
   color: var(--accent-bright);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  padding: 0.15rem 0.5rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 10px;
 }
 
 .task-hide-toggle {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  gap: 0.4rem;
+  font-size: 0.9rem;
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
@@ -1436,12 +1460,12 @@ body {
 
 .task-input {
   flex: 1;
-  padding: 0.6rem 0.8rem;
-  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 
 .task-input:focus {
@@ -1451,8 +1475,8 @@ body {
 }
 
 .task-add-btn {
-  padding: 0.6rem 1rem !important;
-  font-size: 0.9rem !important;
+  padding: 0.7rem 1.2rem !important;
+  font-size: 1rem !important;
 }
 
 .task-empty {
@@ -1471,9 +1495,9 @@ body {
 .task-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.15);
   transition: background var(--transition);
 }
@@ -1492,13 +1516,13 @@ body {
 }
 
 .task-check {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   border: 2px solid var(--border);
   background: transparent;
   color: transparent;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1519,7 +1543,7 @@ body {
 
 .task-name {
   flex: 1;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 500;
 }
 
@@ -1531,10 +1555,10 @@ body {
   background: none;
   border: 1px solid var(--border);
   color: var(--accent-bright);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition);
   white-space: nowrap;
@@ -1555,9 +1579,9 @@ body {
   background: none;
   border: none;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: 1rem;
   cursor: pointer;
-  padding: 0.2rem 0.35rem;
+  padding: 0.3rem 0.4rem;
   border-radius: 4px;
   opacity: 0.5;
   transition: opacity var(--transition), color var(--transition);
@@ -1570,13 +1594,28 @@ body {
 
 /* active task badge on timer */
 .timer-active-task {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--accent-bright);
-  background: rgba(139, 92, 246, 0.15);
-  padding: 0.3rem 0.75rem;
-  border-radius: 20px;
-  margin-bottom: 0.5rem;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  margin: 0.25rem auto 0.75rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 90%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+  animation: task-badge-in 0.3s ease;
+}
+
+@keyframes task-badge-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Timesheet ────────────────────────────────────────────────── */
