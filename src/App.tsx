@@ -4,6 +4,9 @@ import Chat from './components/Chat';
 import AuthPage from './components/AuthPage';
 import Dashboard from './components/Dashboard';
 import Leaderboard from './components/Leaderboard';
+import TaskManager from './components/TaskManager';
+import Timesheet from './components/Timesheet';
+import Reports from './components/Reports';
 import {
   database,
   auth,
@@ -13,9 +16,11 @@ import {
   cancelRoomDisconnect,
   type User,
 } from './firebase';
-import { ref, onValue, set, get, update, remove } from 'firebase/database';
+import { ref, onValue, set, get, update, remove, push } from 'firebase/database';
 import { TimerState, RoomUser, defaultTimer } from './types';
 import './App.css';
+
+type AppView = 'study' | 'timesheet' | 'reports';
 
 function App() {
   /* ── auth state ─────────────────────────────────────────────── */
@@ -42,6 +47,8 @@ function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomUsers, setRoomUsers] = useState<Record<string, TimerState>>({});
   const [roomDisplayNames, setRoomDisplayNames] = useState<Record<string, string>>({});
+  const [appView, setAppView] = useState<AppView>('study');
+  const [activeTask, setActiveTask] = useState<string>('');
 
   /* Listen to room users */
   useEffect(() => {
@@ -119,6 +126,21 @@ function App() {
     });
   };
 
+  /* ── log completed session ──────────────────────────────────── */
+  const logSession = useCallback(
+    (duration: number, type: 'focus' | 'break') => {
+      if (!user || duration <= 0) return;
+      const sessRef = ref(database, `sessions/${user.uid}`);
+      push(sessRef, {
+        taskName: activeTask || '',
+        duration,
+        date: Date.now(),
+        type,
+      });
+    },
+    [user, activeTask],
+  );
+
   /* ── auto-join from URL ─────────────────────────────────────── */
   useEffect(() => {
     if (!user) return;
@@ -165,7 +187,29 @@ function App() {
 
   return (
     <div className="app">
-      {/* compact room strip */}
+      {/* ── nav bar ─────────────────────────────────────────── */}
+      <div className="nav-bar">
+        <button
+          className={`nav-tab ${appView === 'study' ? 'active' : ''}`}
+          onClick={() => setAppView('study')}
+        >
+          🍅 Study Room
+        </button>
+        <button
+          className={`nav-tab ${appView === 'timesheet' ? 'active' : ''}`}
+          onClick={() => setAppView('timesheet')}
+        >
+          🕐 Timesheet
+        </button>
+        <button
+          className={`nav-tab ${appView === 'reports' ? 'active' : ''}`}
+          onClick={() => setAppView('reports')}
+        >
+          📊 Reports
+        </button>
+      </div>
+
+      {/* ── compact room strip ──────────────────────────────── */}
       <div className="room-strip">
         <span className="room-strip-id">
           Room: <strong>{roomId}</strong>
@@ -178,33 +222,51 @@ function App() {
         </button>
       </div>
 
-      <div className="study-layout">
-        <div className="timers-col">
-          <div className="timers-row">
-            {userUids.length === 0 && <p>Connecting…</p>}
+      {/* ── view: study ─────────────────────────────────────── */}
+      {appView === 'study' && (
+        <div className="study-layout">
+          <div className="timers-col">
+            <div className="timers-row">
+              {userUids.length === 0 && <p>Connecting…</p>}
 
-            {userUids.map((uid) => (
-              <PomodoroTimer
-                key={uid}
-                roomId={roomId}
-                userName={roomDisplayNames[uid] || 'User'}
-                userUid={uid}
-                timer={roomUsers[uid]}
-                isOwner={uid === user.uid}
-              />
-            ))}
+              {userUids.map((uid) => (
+                <PomodoroTimer
+                  key={uid}
+                  roomId={roomId}
+                  userName={roomDisplayNames[uid] || 'User'}
+                  userUid={uid}
+                  timer={roomUsers[uid]}
+                  isOwner={uid === user.uid}
+                  onSessionComplete={uid === user.uid ? logSession : undefined}
+                  activeTask={activeTask}
+                />
+              ))}
 
-            {userUids.length === 1 && (
-              <div className="timer-card placeholder">
-                <p>Waiting for your study partner…</p>
-                <p className="small">Invite a friend from the dashboard, or share the room link.</p>
-              </div>
-            )}
+              {userUids.length === 1 && (
+                <div className="timer-card placeholder">
+                  <p>Waiting for your study partner…</p>
+                  <p className="small">Invite a friend from the dashboard, or share the room link.</p>
+                </div>
+              )}
+            </div>
+
+            {/* task manager below timers */}
+            <TaskManager
+              userUid={user.uid}
+              onSelectTask={setActiveTask}
+              activeTask={activeTask}
+            />
           </div>
-        </div>
 
-        <Leaderboard inline />
-      </div>
+          <Leaderboard inline />
+        </div>
+      )}
+
+      {/* ── view: timesheet ─────────────────────────────────── */}
+      {appView === 'timesheet' && <Timesheet userUid={user.uid} />}
+
+      {/* ── view: reports ───────────────────────────────────── */}
+      {appView === 'reports' && <Reports userUid={user.uid} />}
 
       <Chat roomId={roomId} userName={user.displayName || 'User'} />
     </div>

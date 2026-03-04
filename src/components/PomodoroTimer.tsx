@@ -37,10 +37,12 @@ interface Props {
   userUid: string;
   timer: TimerState;
   isOwner: boolean;
+  onSessionComplete?: (duration: number, type: 'focus' | 'break') => void;
+  activeTask?: string;
 }
 
 /* ── component ────────────────────────────────────────────────── */
-const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOwner }) => {
+const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOwner, onSessionComplete, activeTask }) => {
   const rafRef = useRef<number>(0);
   const displayRef = useRef<HTMLSpanElement>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -109,6 +111,9 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
         const nextDuration = nextIsBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
 
         if (isOwner) {
+          /* log completed session */
+          const sessionDuration = timer.isBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
+          onSessionComplete?.(sessionDuration, timer.isBreak ? 'break' : 'focus');
           /* play sound */
           try {
             const audio = new Audio(SOUNDS[0].url);
@@ -147,7 +152,7 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, pomodoroMode, patch, addStudyTime]);
+  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, pomodoroMode, patch, addStudyTime, onSessionComplete]);
 
   /* Update document title for owner */
   useEffect(() => {
@@ -225,6 +230,12 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
       <div className={`timer-status ${timer.isRunning ? 'running' : 'paused'}`}>
         {timer.isRunning ? 'Running' : 'Paused'}
       </div>
+
+      {isOwner && activeTask && (
+        <div className="timer-active-task">
+          🎯 {activeTask}
+        </div>
+      )}
 
       {isOwner && (
         <div className="timer-controls">

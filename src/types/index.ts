@@ -49,6 +49,23 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+/** A user task */
+export interface Task {
+  id: string;
+  name: string;
+  completed: boolean;
+  createdAt: number;
+}
+
+/** A completed session log entry */
+export interface SessionLog {
+  id: string;
+  taskName: string;
+  duration: number; // seconds
+  date: number;     // epoch ms
+  type: 'focus' | 'break';
+}
+
 /** Default timer state factory */
 export const defaultTimer = (work = 25, brk = 5): TimerState => ({
   timeLeft: work * 60,
