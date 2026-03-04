@@ -19,13 +19,14 @@ const fmt = (s: number) => {
 /* ── props ────────────────────────────────────────────────────── */
 interface Props {
   roomId: string;
-  userName: string;      // key under /rooms/{roomId}/users
+  userName: string;      // display name for UI
+  userUid: string;       // key under /rooms/{roomId}/users
   timer: TimerState;
   isOwner: boolean;      // true → this is the current user's timer
 }
 
 /* ── component ────────────────────────────────────────────────── */
-const PomodoroTimer: React.FC<Props> = ({ roomId, userName, timer, isOwner }) => {
+const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOwner }) => {
   const rafRef = useRef<number>(0);
   const displayRef = useRef<HTMLSpanElement>(null);
 
@@ -33,10 +34,10 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, timer, isOwner }) =>
   const patch = useCallback(
     (data: Partial<TimerState>) => {
       if (!isOwner) return;
-      const timerRef = ref(database, `rooms/${roomId}/users/${userName}/timer`);
+      const timerRef = ref(database, `rooms/${roomId}/users/${userUid}/timer`);
       update(timerRef, { ...data, lastUpdated: Date.now() });
     },
-    [isOwner, roomId, userName],
+    [isOwner, roomId, userUid],
   );
 
   /* ── local RAF countdown (display-only, owner also writes back) ─── */

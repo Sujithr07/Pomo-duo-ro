@@ -10,11 +10,35 @@ export interface TimerState {
   endTime: number | null;
 }
 
-/** Per-user data stored under rooms/{roomId}/users/{userName} */
-export interface UserData {
-  name: string;
+/** Per-user data stored under rooms/{roomId}/users/{uid} */
+export interface RoomUser {
+  displayName: string;
   joinedAt: number;
   timer: TimerState;
+}
+
+/** User profile stored under users/{uid} */
+export interface UserProfile {
+  displayName: string;
+  email: string;
+  online: boolean;
+  lastSeen: number;
+  currentRoom: string | null;
+}
+
+/** Friend request stored under friendRequests/{toUid}/{fromUid} */
+export interface FriendRequest {
+  fromUid: string;
+  fromName: string;
+  timestamp: number;
+}
+
+/** Room invite stored under roomInvites/{toUid}/{inviteId} */
+export interface RoomInvite {
+  fromUid: string;
+  fromName: string;
+  roomId: string;
+  timestamp: number;
 }
 
 /** Chat message */

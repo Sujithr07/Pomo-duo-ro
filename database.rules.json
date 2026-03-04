@@ -1,17 +1,41 @@
 {
   "rules": {
+    "users": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null && auth.uid == $uid"
+      },
+      ".read": true
+    },
+    "friends": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "friendRequests": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null"
+      }
+    },
+    "roomInvites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null"
+      }
+    },
     "rooms": {
       "$roomId": {
-        ".read": true,
-        ".write": true,
+        ".read": "auth != null",
+        ".write": "auth != null",
         "users": {
-          ".read": true,
-          ".write": true,
-          ".validate": "newData.hasChildren() && newData.numChildren() <= 2"
+          ".read": "auth != null",
+          ".write": "auth != null"
         },
         "messages": {
-          ".read": true,
-          ".write": true
+          ".read": "auth != null",
+          ".write": "auth != null"
         }
       }
     }
