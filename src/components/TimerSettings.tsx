@@ -34,17 +34,17 @@ const TimerSettings: React.FC<Props> = ({ timer, onApply, onClose }) => {
   const decHours = () => setHours((h) => Math.max(0, h - 1));
   const incMinutes = () => {
     setMinutes((m) => {
-      if (m >= 55) { incHours(); return 0; }
-      return m + 5;
+      if (m >= 59) { incHours(); return 0; }
+      return m + 1;
     });
   };
   const decMinutes = () => {
     setMinutes((m) => {
       if (m <= 0) {
-        if (hours > 0) { setHours((h) => h - 1); return 55; }
+        if (hours > 0) { setHours((h) => h - 1); return 59; }
         return 0;
       }
-      return m - 5;
+      return m - 1;
     });
   };
 

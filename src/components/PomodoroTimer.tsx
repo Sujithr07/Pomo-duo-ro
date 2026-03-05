@@ -73,90 +73,95 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
     [isOwner, userUid, userName],
   );
 
-  /* ── local RAF countdown (display-only, owner also writes back) ─── */
+  /** Shared handler for when the timer reaches zero.
+   *  Called from both RAF (visible) and setInterval (background). */
+  const sessionEndedRef = useRef(false);
+
+  const handleTimerEnd = useCallback(() => {
+    if (sessionEndedRef.current) return;       // prevent double-fire
+    sessionEndedRef.current = true;
+
+    /* Flush any remaining tracked study time */
+    if (isOwner && !timer.isBreak && lastTickRef.current > 0) {
+      const finalElapsed = Math.floor((Date.now() - lastTickRef.current) / 1000);
+      if (finalElapsed > 0) addStudyTime(finalElapsed);
+      lastTickRef.current = 0;
+    }
+
+    const nextIsBreak = !timer.isBreak;
+    const nextDuration = nextIsBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
+
+    if (isOwner) {
+      const sessionDuration = timer.isBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
+      onSessionComplete?.(sessionDuration, timer.isBreak ? 'break' : 'focus');
+
+      /* play sound IMMEDIATELY: cat for focus end, dog for break end */
+      try {
+        const soundUrl = timer.isBreak ? SOUNDS[1].url : SOUNDS[0].url;
+        const audio = new Audio(soundUrl);
+        audio.volume = 0.4;
+        audio.play().catch(() => {});
+      } catch { /* ignore */ }
+
+      /* Windows system notification — unique tag so each one always shows */
+      if (Notification.permission === 'granted') {
+        new Notification(nextIsBreak ? '🎉 Focus session complete!' : '⏰ Break is over!', {
+          body: nextIsBreak
+            ? `Great work — take a ${timer.breakMinutes} minute break.`
+            : 'Break over — time to focus!',
+          icon: `${process.env.PUBLIC_URL}/manifest.json`.replace('manifest.json', 'favicon.ico'),
+          tag: `timer-alert-${Date.now()}`,
+          requireInteraction: true,
+          silent: false,
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+
+      if (pomodoroMode) {
+        patch({
+          isBreak: nextIsBreak,
+          timeLeft: nextDuration,
+          isRunning: true,
+          endTime: Date.now() + nextDuration * 1000,
+        });
+      } else {
+        patch({
+          isBreak: nextIsBreak,
+          timeLeft: nextDuration,
+          isRunning: false,
+          endTime: null,
+        });
+      }
+    }
+  }, [isOwner, timer.isBreak, timer.breakMinutes, timer.workMinutes, pomodoroMode, patch, addStudyTime, onSessionComplete]);
+
+  /* ── RAF loop: smooth display updates when tab is visible ─── */
   useEffect(() => {
     if (!timer.isRunning || !timer.endTime) {
       lastTickRef.current = 0;
+      sessionEndedRef.current = false;
       return;
     }
 
-    // Initialize tick tracker
     if (lastTickRef.current === 0) lastTickRef.current = Date.now();
+    sessionEndedRef.current = false;
 
     const tick = () => {
       const now = Date.now();
       const remaining = Math.max(0, Math.ceil((timer.endTime! - now) / 1000));
       if (displayRef.current) displayRef.current.textContent = fmt(remaining);
 
-      // Track focus study time (not break) every RAF tick for owner
       if (isOwner && !timer.isBreak && lastTickRef.current > 0) {
         const elapsed = Math.floor((now - lastTickRef.current) / 1000);
         if (elapsed >= 10) {
-          // Batch write every ~10 seconds to avoid too many writes
           addStudyTime(elapsed);
           lastTickRef.current = now;
         }
       }
 
       if (remaining <= 0) {
-        /* Flush any remaining tracked time */
-        if (isOwner && !timer.isBreak && lastTickRef.current > 0) {
-          const finalElapsed = Math.floor((now - lastTickRef.current) / 1000);
-          if (finalElapsed > 0) addStudyTime(finalElapsed);
-          lastTickRef.current = 0;
-        }
-
-        /* session ended */
-        const nextIsBreak = !timer.isBreak;
-        const nextDuration = nextIsBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
-
-        if (isOwner) {
-          /* log completed session */
-          const sessionDuration = timer.isBreak ? timer.breakMinutes * 60 : timer.workMinutes * 60;
-          onSessionComplete?.(sessionDuration, timer.isBreak ? 'break' : 'focus');
-          /* play sound: cat for focus end, dog for break end */
-          try {
-            const soundUrl = timer.isBreak ? SOUNDS[1].url : SOUNDS[0].url;
-            const audio = new Audio(soundUrl);
-            audio.volume = 0.4;
-            audio.play().catch(() => {});
-          } catch { /* ignore */ }
-
-          /* notify */
-          if (Notification.permission === 'granted') {
-            new Notification(nextIsBreak ? '🎉 Focus session complete!' : '⏰ Break is over!', {
-              body: nextIsBreak
-                ? `Great work — take a ${timer.breakMinutes} minute break.`
-                : 'Break over — time to focus!',
-              tag: 'timer-alert',
-              requireInteraction: true,
-            });
-          } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
-          }
-
-          /* in-app alert for visibility */
-          const alertMsg = nextIsBreak
-            ? `✅ Focus session complete! Time for a ${timer.breakMinutes}min break.`
-            : '⏰ Break is over! Let\'s get back to work!';
-          setTimeout(() => alert(alertMsg), 200);
-
-          if (pomodoroMode) {
-            patch({
-              isBreak: nextIsBreak,
-              timeLeft: nextDuration,
-              isRunning: true,
-              endTime: Date.now() + nextDuration * 1000,
-            });
-          } else {
-            patch({
-              isBreak: nextIsBreak,
-              timeLeft: nextDuration,
-              isRunning: false,
-              endTime: null,
-            });
-          }
-        }
+        handleTimerEnd();
         return;
       }
 
@@ -165,7 +170,34 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, pomodoroMode, patch, addStudyTime, onSessionComplete]);
+  }, [timer.isRunning, timer.endTime, timer.isBreak, timer.workMinutes, timer.breakMinutes, isOwner, handleTimerEnd, addStudyTime]);
+
+  /* ── setInterval: fires even when tab is in background ──── */
+  useEffect(() => {
+    if (!timer.isRunning || !timer.endTime) return;
+
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((timer.endTime! - now) / 1000));
+
+      // Update display in case RAF is throttled
+      if (displayRef.current) displayRef.current.textContent = fmt(remaining);
+
+      if (remaining <= 0) {
+        handleTimerEnd();
+        clearInterval(intervalId);
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [timer.isRunning, timer.endTime, handleTimerEnd]);
+
+  /* Sync display when timer is NOT running (fixes reset & apply-settings display) */
+  useEffect(() => {
+    if (!timer.isRunning && displayRef.current) {
+      displayRef.current.textContent = fmt(timer.timeLeft);
+    }
+  }, [timer.timeLeft, timer.isRunning]);
 
   /* Update document title for owner */
   useEffect(() => {
@@ -207,8 +239,9 @@ const PomodoroTimer: React.FC<Props> = ({ roomId, userName, userUid, timer, isOw
       workMinutes: workMin,
       breakMinutes: breakMinutes,
     };
-    if (!timer.isRunning && !timer.isBreak) {
-      updates.timeLeft = workSeconds;
+    /* Always update timeLeft when timer is stopped so the new value shows immediately */
+    if (!timer.isRunning) {
+      updates.timeLeft = timer.isBreak ? breakMinutes * 60 : workSeconds;
     }
     patch(updates);
   };

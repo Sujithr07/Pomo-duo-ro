@@ -54,7 +54,7 @@ const Reports: React.FC<Props> = ({ userUid }) => {
     const dailyMap: Record<string, number> = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date(todayStart - i * 86400000);
-      const key = `${d.getMonth() + 1}/${d.getDate()}`;
+      const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
       dailyMap[key] = 0;
     }
 
@@ -67,7 +67,7 @@ const Reports: React.FC<Props> = ({ userUid }) => {
 
       // Daily
       const d = new Date(s.date);
-      const key = `${d.getMonth() + 1}/${d.getDate()}`;
+      const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
       if (key in dailyMap) dailyMap[key] += s.duration;
     });
 
@@ -85,7 +85,7 @@ const Reports: React.FC<Props> = ({ userUid }) => {
       if (wSec > 0) {
         const wd = new Date(wStart);
         weeklyMap.push({
-          label: `${wd.getMonth() + 1}/${wd.getDate()}`,
+          label: `${String(wd.getDate()).padStart(2, '0')}/${String(wd.getMonth() + 1).padStart(2, '0')}/${String(wd.getFullYear()).slice(-2)}`,
           seconds: wSec,
         });
       }
@@ -147,7 +147,7 @@ const Reports: React.FC<Props> = ({ userUid }) => {
           {stats.dailyEntries.map(([day, sec]) => {
             const pct = (sec / stats.maxDaily) * 100;
             const d = new Date();
-            const todayKey = `${d.getMonth() + 1}/${d.getDate()}`;
+            const todayKey = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
             return (
               <div key={day} className={`rp-bar-col ${day === todayKey ? 'today' : ''}`}>
                 <span className="rp-bar-val">{fmtDur(sec)}</span>

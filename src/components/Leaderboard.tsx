@@ -41,6 +41,7 @@ const Leaderboard: React.FC<Props> = ({ inline, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [spinning, setSpinning] = useState(false);
   const todayKey = getTodayKeyIST();
+  const todayDisplay = (() => { const [y, m, d] = todayKey.split('-'); return `${d}/${m}/${y.slice(-2)}`; })();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -86,7 +87,7 @@ const Leaderboard: React.FC<Props> = ({ inline, onClose }) => {
         </div>
       </div>
 
-      <p className="lb-date">{todayKey} (IST)</p>
+      <p className="lb-date">{todayDisplay} (IST)</p>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '2rem' }}>

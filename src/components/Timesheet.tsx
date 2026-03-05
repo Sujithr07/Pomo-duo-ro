@@ -59,6 +59,14 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
     })
     .reduce((acc, s) => acc + s.duration, 0);
 
+  const totalBreakToday = sessions
+    .filter((s) => {
+      const now = new Date();
+      const d = new Date(s.date);
+      return d.toDateString() === now.toDateString() && s.type === 'break';
+    })
+    .reduce((acc, s) => acc + s.duration, 0);
+
   /* Per-task time breakdown (focus sessions only) */
   const taskStats = useMemo(() => {
     const taskMap: Record<string, number> = {};
@@ -81,6 +89,10 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
         <div className="ts-stat">
           <span className="ts-stat-label">Today's Focus</span>
           <span className="ts-stat-value">{fmtDur(totalToday)}</span>
+        </div>
+        <div className="ts-stat">
+          <span className="ts-stat-label">Today's Break</span>
+          <span className="ts-stat-value">{fmtDur(totalBreakToday)}</span>
         </div>
       </div>
 
@@ -118,11 +130,12 @@ const Timesheet: React.FC<Props> = ({ userUid }) => {
           <div className="ts-groups">
           {Object.entries(grouped).map(([dateStr, daySessions]) => {
             const focusTotal = daySessions.filter((s) => s.type === 'focus').reduce((a, s) => a + s.duration, 0);
+            const breakTotal = daySessions.filter((s) => s.type === 'break').reduce((a, s) => a + s.duration, 0);
             return (
               <div key={dateStr} className="ts-day">
                 <div className="ts-day-header">
                   <span className="ts-day-date">{dateStr}</span>
-                  <span className="ts-day-total">{fmtDur(focusTotal)} focus</span>
+                  <span className="ts-day-total">{fmtDur(focusTotal)} focus · {fmtDur(breakTotal)} break</span>
                 </div>
                 <div className="ts-day-rows">
                   {daySessions.map((s) => (
